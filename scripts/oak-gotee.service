@@ -1,9 +1,17 @@
 [Unit]
 Description=GoTEE TCP forwarder + usb0 link (LAN:4000 -> usb0:10.0.0.1:4000)
-# Bind to the cdc_ether usb0 device so we auto-start when the Armory is
-# plugged in and auto-stop when it's unplugged.
-BindsTo=sys-subsystem-net-devices-usb0.device
-After=sys-subsystem-net-devices-usb0.device network.target
+# Don't gate on the usb0 device unit — on this OS image multi-user.target
+# activates before the cdc_ether bind completes, and `BindsTo=` makes
+# systemd skip the start (rather than wait), so the unit never came up
+# at boot. The forwarder accepts connections regardless; if usb0 isn't
+# yet bound, individual proxied requests fail and the watchdog timer
+# bounces the link.
+After=network.target
+Wants=sys-subsystem-net-devices-usb0.device
+# Pull the watchdog timer in alongside us — its own WantedBy=network.target
+# wasn't reliably honoured at boot on this OS (the .service got pulled,
+# the .timer didn't), so anchor it as a Wants= of the forwarder.
+Wants=oak-gotee-watchdog.timer
 StartLimitIntervalSec=30
 StartLimitBurst=10
 
@@ -13,7 +21,11 @@ Type=simple
 # Tolerate the address being already set across restarts.
 ExecStartPre=-/sbin/ip link set usb0 up
 ExecStartPre=-/sbin/ip addr add 10.0.0.2/24 dev usb0
-ExecStart=/usr/bin/python3 /var/lib/oak-gotee/forwarder.py
+# /data/ is persistent on the Luxonis OS RVC4 image (ext4 overlay onto
+# /dev/sda11); /var/lib is overlayed onto /var/volatile/ which is wiped
+# at every boot, so the forwarder file disappeared on reboot when we
+# stored it there.
+ExecStart=/usr/bin/python3 /data/oak-gotee/forwarder.py
 Restart=always
 RestartSec=2
 User=root
@@ -21,4 +33,12 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
+# multi-user.target is where every reliable autostarted unit on this
+# system lives. WantedBy=network.target alone wasn't sufficient — when
+# network.target gets activated *passively* (by some other unit needing
+# it) rather than as an explicit job, systemd skipped pulling the
+# .wants/ entries, so we never started despite being "enabled".
+# install-systemd.sh disables NetworkManager-wait-online.service so
+# multi-user.target isn't blocked for 90s waiting for an online state
+# we don't need.
 WantedBy=multi-user.target

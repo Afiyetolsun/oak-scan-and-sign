@@ -11,4 +11,8 @@ Unit=oak-gotee-watchdog.service
 AccuracySec=5
 
 [Install]
-WantedBy=timers.target
+# multi-user.target is the reliably-reached target on this OS once
+# install-systemd.sh disables NetworkManager-wait-online.service.
+# Belt-and-suspenders: oak-gotee.service has Wants=oak-gotee-watchdog.timer
+# so the timer also gets pulled in once the forwarder unit starts.
+WantedBy=multi-user.target

@@ -28,6 +28,9 @@ fi
 echo "→ copying scripts to ${OAK_IP}:/tmp/"
 scp "$HERE/forwarder.py" "$HERE/oak-host-setup.sh" \
     "$HERE/oak-gotee.service" "$HERE/install-systemd.sh" \
+    "$HERE/oak-gotee-watchdog.sh" "$HERE/oak-gotee-watchdog.service" \
+    "$HERE/oak-gotee-watchdog.timer" \
+    "$HERE/oak-gotee-bootstrap.sh" "$HERE/99-oak-gotee.rules" \
     "root@${OAK_IP}:/tmp/"
 
 if [ "$MODE" = "systemd" ]; then

@@ -1,0 +1,13 @@
+# udev rule: bootstrap the gotee forwarder + its watchdog timer when
+# the cdc_ether usb0 interface (USB Armory) is added by the kernel.
+#
+# We can't `systemctl start` directly here — udev fires before systemd
+# finishes loading user units at boot, so the start would fail with
+# 'unit not found'. systemd-run --no-block spawns the bootstrap script
+# as a transient unit that polls until the manager is ready.
+#
+# Why udev instead of systemd's own WantedBy mechanism: on this OS
+# image enabled WantedBy=multi-user.target units stay 'inactive (dead)'
+# at boot even though the target reaches and the wants symlinks exist.
+# The full theory in scripts/oak-gotee-bootstrap.sh.
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="usb0", RUN+="/usr/bin/systemd-run --no-block /data/oak-gotee/bootstrap.sh"
